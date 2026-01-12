@@ -1,0 +1,24 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Virtualenvs / package manager caches
+.venv/
+venv/
+.uv-cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Project-generated artifacts (often large)
+outputs/
+data_gen/dataset/
+

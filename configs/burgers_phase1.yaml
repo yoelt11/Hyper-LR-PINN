@@ -1,0 +1,34 @@
+# Configuration for Phase 1 (Meta-learning) training - Burgers Equation
+# This phase trains the hypernetwork to learn parameter-conditioned weights
+
+dataset:
+  equation: "burgers"
+  data_dir: "./data_gen/dataset"
+  seed: 42
+  n_train: 10  # Few-shot training samples
+  cache: true
+
+model:
+  hidden_dim: 50
+  phase: "phase1"
+
+training:
+  epochs: 20000
+  learning_rate: 0.00025
+  batch_size: null
+  optimizer: "adamw"
+  checkpoint_interval: 1000
+  # Optional explicit initial-condition loss for Burgers:
+  # u(x,0) = A * sin(k*pi*x), where dataset params are [A, k, nu]
+  # Leave at 0.0 to avoid double-counting if you're already fitting full-field data.
+  ic_weight: 0.0
+
+export:
+  output_dir: "./outputs"
+  save_plots: true
+  plot_max_samples: 5
+
+device: "cuda:0"
+seed: 42
+
+

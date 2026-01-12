@@ -5,12 +5,35 @@ from shutil import copyfile
 from collections import Counter
 import pandas as pd
 from torch.autograd import Variable
-from config import get_config
 
-args = get_config()
-device = torch.device(args.device)
+# Lazy config loading - only load when needed for backward compatibility
+_args = None
+_device = None
 
-def orthogonality_reg(col, row, rank):
+def _get_config_lazy():
+    """Lazy loading of config for backward compatibility with old scripts."""
+    global _args, _device
+    if _args is None:
+        try:
+            from config import get_config
+            _args = get_config()
+            _device = torch.device(_args.device)
+        except (SystemExit, ImportError):
+            # If config parsing fails (e.g., new scripts), use default
+            _device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    return _args, _device
+
+def orthogonality_reg(col, row, rank, device=None):
+    """Compute orthogonality regularization loss.
+    
+    Args:
+        col: Column basis matrix
+        row: Row basis matrix
+        rank: Rank of the matrices
+        device: Device to use (if None, inferred from col tensor)
+    """
+    if device is None:
+        device = col.device
     col_reg = torch.matmul(col, torch.transpose(col, 0, 1)) - torch.eye(rank).to(device)
     row_reg = torch.matmul(row, torch.transpose(row, 0, 1)) - torch.eye(rank).to(device)
     reg_loss = (torch.norm(col_reg ,p='fro') + torch.norm(row_reg, p='fro'))/(rank*rank)
@@ -60,9 +83,11 @@ def f_cal(x, t, beta, nu, rho, net, hidden_dim):
     u_t = torch.autograd.grad(u.sum(), t, create_graph=True)[0]
     u_xx = torch.autograd.grad(u_x.sum(), x, create_graph=True)[0]
 
-    reg_f_0 = orthogonality_reg(col_0_f, row_0_f, hidden_dim)
-    reg_f_1 = orthogonality_reg(col_1_f, row_1_f, hidden_dim)
-    reg_f_2 = orthogonality_reg(col_2_f, row_2_f, hidden_dim)
+    # Get device from tensors (no need for global device)
+    device = col_0_f.device
+    reg_f_0 = orthogonality_reg(col_0_f, row_0_f, hidden_dim, device=device)
+    reg_f_1 = orthogonality_reg(col_1_f, row_1_f, hidden_dim, device=device)
+    reg_f_2 = orthogonality_reg(col_2_f, row_2_f, hidden_dim, device=device)
     reg_f = reg_f_0 + reg_f_1 + reg_f_2
 
     pde = (beta * u_x) - (nu * u_xx) - (rho * u * (1-u)) + u_t

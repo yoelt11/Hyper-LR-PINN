@@ -1,0 +1,31 @@
+# Configuration for Phase 2 (Fine-tuning) training - Burgers Equation
+# This phase fine-tunes the model for a specific parameter value / task
+
+dataset:
+  equation: "burgers"
+  data_dir: "./data_gen/dataset"
+  seed: 42
+  n_train: 10
+  cache: true
+
+model:
+  hidden_dim: 50
+  phase: "phase2"
+  phase1_checkpoint: "./outputs/burgers_phase1/checkpoints/best.pt"
+
+training:
+  epochs: 10000
+  learning_rate: 0.00025
+  batch_size: null
+  optimizer: "adamw"
+  checkpoint_interval: 1000
+
+export:
+  output_dir: "./outputs"
+  save_plots: true
+  plot_max_samples: 5
+
+device: "cuda:0"
+seed: 42
+
+

@@ -1,0 +1,31 @@
+# Configuration for Phase 2 (Fine-tuning) training - Allen-Cahn Equation
+# This phase fine-tunes the model for specific parameter values
+
+dataset:
+  equation: "allen_cahn"
+  data_dir: "./data_gen/dataset"
+  seed: 0
+  n_train: 10  # Few-shot training samples
+  cache: true
+
+model:
+  hidden_dim: 50
+  phase: "phase2"  # Fine-tuning phase
+  # Update this path after phase1 training completes
+  phase1_checkpoint: "./outputs/allen_cahn_phase1/checkpoints/best.pt"
+
+training:
+  epochs: 10000
+  learning_rate: 0.00025
+  batch_size: null  # Full batch
+  optimizer: "adamw"
+  checkpoint_interval: 1000
+
+export:
+  output_dir: "./outputs"
+  save_plots: true
+  plot_max_samples: 5
+
+device: "cuda:0"
+seed: 42
+

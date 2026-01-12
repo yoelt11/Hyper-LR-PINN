@@ -1,0 +1,35 @@
+# Configuration for Phase 2 (Fine-tuning) training - Helmholtz 2D Equation
+#
+# NOTE:
+# The current training/eval code paths are built for (x, t) problems and a
+# convection/reaction/diffusion residual. Helmholtz2D requires (x, y) handling
+# and an equation-specific residual; use this config as a scaffold.
+
+dataset:
+  equation: "helmholtz2D"
+  data_dir: "./data_gen/dataset"
+  seed: 42
+  n_train: 10
+  cache: true
+
+model:
+  hidden_dim: 50
+  phase: "phase2"
+  phase1_checkpoint: "./outputs/helmholtz2D_phase1/checkpoints/best.pt"
+
+training:
+  epochs: 10000
+  learning_rate: 0.00025
+  batch_size: null
+  optimizer: "adamw"
+  checkpoint_interval: 1000
+
+export:
+  output_dir: "./outputs"
+  save_plots: true
+  plot_max_samples: 5
+
+device: "cuda:0"
+seed: 42
+
+

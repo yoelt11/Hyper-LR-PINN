@@ -1,0 +1,36 @@
+[project]
+name = "hyper-lr-pinn"
+version = "0.1.0"
+description = "Hypernetwork-based Meta-Learning for Low-Rank Physics-Informed Neural Networks"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=1.13.0",
+    "numpy>=1.22.0",
+    "pandas>=1.4.0",
+    "scikit-learn>=1.1.0",
+    "matplotlib>=3.6.0",
+    "pyyaml>=6.0",
+    "eff-physics-learn-dataset @ git+https://github.com/yoelt11/eff-physics-learn-dataset.git",
+    "metrics-structures @ git+https://github.com/yoelt11/metrics-structures.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "flake8>=5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+dev-dependencies = []
+

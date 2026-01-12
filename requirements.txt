@@ -1,0 +1,12 @@
+# Core dependencies
+torch>=1.13.0
+numpy>=1.22.0
+pandas>=1.4.0
+scikit-learn>=1.1.0
+matplotlib>=3.6.0
+pyyaml>=6.0
+
+# External repositories
+git+ssh://git@github.com/yoelt11/eff-physics-learn-dataset.git
+git+https://github.com/yoelt11/metrics-structures.git
+

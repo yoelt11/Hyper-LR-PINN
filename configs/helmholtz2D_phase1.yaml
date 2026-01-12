@@ -1,0 +1,35 @@
+# Configuration for Phase 1 (Meta-learning) training - Helmholtz 2D Equation
+#
+# NOTE:
+# The current Hyper-LR-PINN training loops (`scripts/train.py`) assume a (x, t) coordinate
+# system and use a convection/reaction/diffusion-style PDE residual from `utils.py`.
+# Helmholtz2D is spatial-only (x, y) and needs an equation-specific residual.
+# This config is provided for completeness and future extension.
+
+dataset:
+  equation: "helmholtz2D"
+  data_dir: "./data_gen/dataset"
+  seed: 42
+  n_train: 10
+  cache: true
+
+model:
+  hidden_dim: 50
+  phase: "phase1"
+
+training:
+  epochs: 20000
+  learning_rate: 0.001 #0.00025
+  batch_size: null
+  optimizer: "adamw"
+  checkpoint_interval: 1000
+
+export:
+  output_dir: "./outputs"
+  save_plots: true
+  plot_max_samples: 5
+
+device: "cuda:0"
+seed: 42
+
+
