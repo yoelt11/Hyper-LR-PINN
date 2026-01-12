@@ -17,6 +17,7 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+.ssh_known_hosts
 
 # Project-generated artifacts (often large)
 outputs/
