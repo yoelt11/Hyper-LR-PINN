@@ -215,7 +215,11 @@ def main():
         data_dir=dataset_config['data_dir'],
         seed=dataset_config.get('seed', 42),
         n_train=dataset_config.get('n_train', 10),
-        cache=dataset_config.get('cache', True)
+        cache=dataset_config.get('cache', True),
+        balance=dataset_config.get('balance', False),
+        n_each=dataset_config.get('n_each', None),
+        balance_strategy=dataset_config.get('balance_strategy', 'random'),
+        diversify=dataset_config.get('diversify', False)
     )
     
     # Get normalization stats

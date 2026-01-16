@@ -1,0 +1,3 @@
+Split,Zero-shot_L2_Error,Zero-shot_Time,FT_50_epochs_L2_Error,FT_50_epochs_Time,FT_250_epochs_L2_Error,FT_250_epochs_Time,FT_500_epochs_L2_Error,FT_500_epochs_Time,FT_750_epochs_L2_Error,FT_750_epochs_Time,FT_1000_epochs_L2_Error,FT_1000_epochs_Time
+Interpolation,6.935800e-01 ± 2.751494e-01,0.02,5.877098e-01 ± 6.506212e-02,0.01,5.798205e-01 ± 1.095824e-02,0.02,5.778088e-01 ± 4.357245e-03,0.01,5.779954e-01 ± 2.199488e-03,0.01,5.778731e-01 ± 1.647764e-03,0.01
+Extrapolation,5.100747e-01 ± 2.978699e-01,0.03,7.134818e-01 ± 1.277735e-02,0.01,6.185435e-01 ± 5.865121e-03,0.01,5.809243e-01 ± 1.028705e-02,0.01,5.796946e-01 ± 5.378519e-03,0.01,5.793920e-01 ± 2.813486e-03,0.03

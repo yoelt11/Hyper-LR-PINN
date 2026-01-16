@@ -4,9 +4,14 @@
 dataset:
   equation: "burgers"
   data_dir: "./data_gen/dataset"
-  seed: 42
+  seed: 0
   n_train: 10
   cache: true
+  # Balanced splits: deterministic, equal-sized test sets (20 interp + 20 extrap = 40 total)
+  balance: true
+  n_each: 20
+  balance_strategy: random
+  diversify: false
 
 model:
   hidden_dim: 50

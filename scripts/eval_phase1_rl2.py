@@ -177,6 +177,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         seed=ds_cfg.get("seed", 42),
         n_train=ds_cfg.get("n_train", 10),
         cache=ds_cfg.get("cache", True),
+        balance=ds_cfg.get("balance", False),
+        n_each=ds_cfg.get("n_each", None),
+        balance_strategy=ds_cfg.get("balance_strategy", "random"),
+        diversify=ds_cfg.get("diversify", False)
     )
     processed = convert_to_model_format(splits, phase="phase1", device=str(device))
     train_samples = list(processed.get("train_few", []))

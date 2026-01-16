@@ -20,6 +20,15 @@ Thumbs.db
 .ssh_known_hosts
 
 # Project-generated artifacts (often large)
-outputs/
+# Note: outputs/ is ignored by default, but cleaned outputs for reproducibility are force-added
+outputs/**/*.pt
+outputs/**/*.pth
+outputs/**/*.pkl
+outputs/**/*.json
+outputs/**/*.svg
+# Allow specific files for reproducibility (force-add these)
+# outputs/aggregated_summary_tables.txt
+# outputs/seed_*/**/*.csv
+# outputs/seed_*/**/visualizations/*_epoch_*_samples_*.png
 data_gen/dataset/
 

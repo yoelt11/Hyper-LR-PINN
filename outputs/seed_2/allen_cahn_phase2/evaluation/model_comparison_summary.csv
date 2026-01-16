@@ -1,0 +1,2 @@
+Equation,Model,Zero-shot (L2 Error),ACC Time (ms),FT after 50 epochs,ACC Time (50 epochs),FT after 250 epochs,ACC Time (250 epochs),FT after 500 epochs,ACC Time (500 epochs),FT after 750 epochs,ACC Time (750 epochs),FT after 1000 epochs,ACC Time (1000 epochs)
+Allen Cahn,Hyper-LR-PINN,0.2870 ± 0.24,28.19,0.2257 ± 0.19,39.65,0.2012 ± 0.13,23.14,0.2062 ± 0.12,32.10,0.2090 ± 0.11,28.28,0.2108 ± 0.11,37.37

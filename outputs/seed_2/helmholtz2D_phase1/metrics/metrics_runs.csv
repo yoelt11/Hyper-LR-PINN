@@ -1,0 +1,2 @@
+id,_summary_path,wall_time_sec,epoch,train_loss,mse_u,mse_f,mse_bd,train_mse_norm,rl2_train,rl2_train_global,rl2_train_mean_per_sample,rl2_train_std_per_sample,rl2_train_sem_per_sample,n_train_samples_for_rl2
+d02decad-71af-486e-9494-7d0621449b4c,/metadata/final_summary,5008.0237238407135,20000.0,20.361448287963867,0.3573664724826813,18.256887435913086,1.6768850088119507,1.3486967086791992,1.1613339906372115,1.1613339906372115,0.781389057636261,0.9246136509006282,0.2923885092529781,10.0

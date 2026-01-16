@@ -1,0 +1,2 @@
+Equation,Model,Zero-shot (L2 Error),ACC Time (ms),FT after 50 epochs,ACC Time (50 epochs),FT after 250 epochs,ACC Time (250 epochs),FT after 500 epochs,ACC Time (500 epochs),FT after 750 epochs,ACC Time (750 epochs),FT after 1000 epochs,ACC Time (1000 epochs)
+Convection,Hyper-LR-PINN,0.6018 ± 0.29,45.87,0.6506 ± 0.05,23.61,0.5992 ± 0.01,37.12,0.5794 ± 0.01,24.33,0.5788 ± 0.00,23.77,0.5786 ± 0.00,39.39

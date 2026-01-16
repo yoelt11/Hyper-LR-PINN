@@ -1249,6 +1249,118 @@ def generate_summary_table(
     print("=" * 100)
 
 
+def generate_model_comparison_table(
+    equation: str,
+    interp_results: Dict[int, Tuple[float, float, float]],
+    extrap_results: Dict[int, Tuple[float, float, float]],
+    output_path: str
+):
+    """
+    Generate a model comparison summary table in the format:
+    Equation | Model | Zero-shot (L2 Error) | ACC Time (ms) | FT after 50 epochs | ACC Time | ...
+    
+    Args:
+        equation: Equation name (e.g., "Allen Cahn")
+        interp_results: Dictionary mapping epoch -> (l2_mean, l2_std, time) for interpolation
+        extrap_results: Dictionary mapping epoch -> (l2_mean, l2_std, time) for extrapolation
+        output_path: Path to save the table
+    """
+    # Get all epochs (excluding 0, which is zero-shot)
+    all_epochs = sorted([e for e in set(list(interp_results.keys()) + list(extrap_results.keys())) if e > 0])
+    
+    # Get zero-shot results (average of interp and extrap)
+    zero_shot_interp = interp_results.get(0, (float('nan'), float('nan'), 0.0))
+    zero_shot_extrap = extrap_results.get(0, (float('nan'), float('nan'), 0.0))
+    
+    # Average zero-shot L2 error (mean of interp and extrap)
+    if not (np.isnan(zero_shot_interp[0]) or np.isnan(zero_shot_extrap[0])):
+        zero_shot_l2_mean = (zero_shot_interp[0] + zero_shot_extrap[0]) / 2.0
+        zero_shot_l2_std = np.sqrt((zero_shot_interp[1]**2 + zero_shot_extrap[1]**2) / 2.0)
+    else:
+        zero_shot_l2_mean = float('nan')
+        zero_shot_l2_std = float('nan')
+    
+    # Average zero-shot time (sum of interp and extrap times)
+    zero_shot_time = zero_shot_interp[2] + zero_shot_extrap[2]
+    
+    # Build table row
+    row_data = {
+        'Equation': equation.replace('_', ' ').title(),
+        'Model': 'Hyper-LR-PINN',
+        'Zero-shot (L2 Error)': f"{zero_shot_l2_mean:.4f} ± {zero_shot_l2_std:.2f}" if not np.isnan(zero_shot_l2_mean) else "N/A",
+        'ACC Time (ms)': f"{zero_shot_time * 1000:.2f}" if zero_shot_time > 0 else "N/A"
+    }
+    
+    # Add fine-tuning results for each epoch
+    for epoch in all_epochs:
+        ft_interp = interp_results.get(epoch, (float('nan'), float('nan'), 0.0))
+        ft_extrap = extrap_results.get(epoch, (float('nan'), float('nan'), 0.0))
+        
+        # Average FT L2 error
+        if not (np.isnan(ft_interp[0]) or np.isnan(ft_extrap[0])):
+            ft_l2_mean = (ft_interp[0] + ft_extrap[0]) / 2.0
+            ft_l2_std = np.sqrt((ft_interp[1]**2 + ft_extrap[1]**2) / 2.0)
+            row_data[f'FT after {epoch} epochs'] = f"{ft_l2_mean:.4f} ± {ft_l2_std:.2f}"
+        else:
+            row_data[f'FT after {epoch} epochs'] = "N/A"
+        
+        # FT time (sum of interp and extrap)
+        ft_time = ft_interp[2] + ft_extrap[2]
+        row_data[f'ACC Time ({epoch} epochs)'] = f"{ft_time * 1000:.2f}" if ft_time > 0 else "N/A"
+    
+    # Create DataFrame
+    df = pd.DataFrame([row_data])
+    
+    # Save to CSV
+    df.to_csv(output_path, index=False)
+    print(f"\nModel comparison table saved to {output_path}")
+    
+    # Print formatted table
+    # Calculate total width based on columns
+    col_widths = {
+        'Equation': 20,
+        'Model': 15,
+        'Zero-shot (L2 Error)': 25,
+        'ACC Time (ms)': 15,
+        'FT epochs': 25,
+        'ACC Time': 15
+    }
+    total_width = col_widths['Equation'] + col_widths['Model'] + col_widths['Zero-shot (L2 Error)'] + col_widths['ACC Time (ms)']
+    total_width += len(all_epochs) * (col_widths['FT epochs'] + col_widths['ACC Time'])
+    
+    print("\n" + "=" * total_width)
+    print("Model Comparison Summary")
+    print("=" * total_width)
+    
+    # Build header dynamically
+    header_parts = [
+        f"{'Equation':<{col_widths['Equation']}}",
+        f"{'Model':<{col_widths['Model']}}",
+        f"{'Zero-shot (L2 Error)':<{col_widths['Zero-shot (L2 Error)']}}",
+        f"{'ACC Time (ms)':<{col_widths['ACC Time (ms)']}}"
+    ]
+    for epoch in all_epochs:
+        header_parts.append(f"{'FT after ' + str(epoch) + ' epochs':<{col_widths['FT epochs']}}")
+        header_parts.append(f"{'ACC Time':<{col_widths['ACC Time']}}")
+    header = "".join(header_parts)
+    print(header)
+    print("-" * total_width)
+    
+    # Build data row
+    row_parts = [
+        f"{row_data['Equation']:<{col_widths['Equation']}}",
+        f"{row_data['Model']:<{col_widths['Model']}}",
+        f"{row_data['Zero-shot (L2 Error)']:<{col_widths['Zero-shot (L2 Error)']}}",
+        f"{row_data['ACC Time (ms)']:<{col_widths['ACC Time (ms)']}}"
+    ]
+    for epoch in all_epochs:
+        row_parts.append(f"{row_data.get(f'FT after {epoch} epochs', 'N/A'):<{col_widths['FT epochs']}}")
+        row_parts.append(f"{row_data.get(f'ACC Time ({epoch} epochs)', 'N/A'):<{col_widths['ACC Time']}}")
+    row_str = "".join(row_parts)
+    print(row_str)
+    print("=" * total_width)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Fine-tuning evaluation with checkpoint tracking')
     parser.add_argument('--config', type=str, required=True,
@@ -1312,7 +1424,11 @@ def main():
         data_dir=dataset_config['data_dir'],
         seed=dataset_config.get('seed', 42),
         n_train=dataset_config.get('n_train', 10),
-        cache=dataset_config.get('cache', True)
+        cache=dataset_config.get('cache', True),
+        balance=dataset_config.get('balance', False),
+        n_each=dataset_config.get('n_each', None),
+        balance_strategy=dataset_config.get('balance_strategy', 'random'),
+        diversify=dataset_config.get('diversify', False)
     )
 
     # IMPORTANT: work with normalized samples (model space) throughout evaluation/visualization,
@@ -1473,6 +1589,10 @@ def main():
     
     summary_path = os.path.join(summary_dir, "finetune_summary.csv")
     generate_summary_table(interp_results, extrap_results, summary_path)
+    
+    # Generate model comparison table
+    comparison_path = os.path.join(summary_dir, "model_comparison_summary.csv")
+    generate_model_comparison_table(equation, interp_results, extrap_results, comparison_path)
     
     print("\n" + "=" * 80)
     print("Fine-tuning evaluation completed!")

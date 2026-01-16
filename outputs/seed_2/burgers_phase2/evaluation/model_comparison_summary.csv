@@ -1,0 +1,2 @@
+Equation,Model,Zero-shot (L2 Error),ACC Time (ms),FT after 50 epochs,ACC Time (50 epochs),FT after 250 epochs,ACC Time (250 epochs),FT after 500 epochs,ACC Time (500 epochs),FT after 750 epochs,ACC Time (750 epochs),FT after 1000 epochs,ACC Time (1000 epochs)
+Burgers,Hyper-LR-PINN,1.0533 ± 0.59,48.70,0.9747 ± 0.43,45.01,0.8992 ± 0.25,18.44,0.8692 ± 0.18,18.48,0.8564 ± 0.16,18.48,0.8500 ± 0.16,18.96

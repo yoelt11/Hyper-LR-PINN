@@ -7,6 +7,9 @@ parametric PDE datasets with proper splits, normalization, and coordinate grid h
 
 import numpy as np
 import torch
+import json
+import os
+from pathlib import Path
 from typing import Dict, Tuple, Optional, List, Any
 from collections import namedtuple
 
@@ -38,7 +41,12 @@ def load_parametric_dataset(
     data_dir: str,
     seed: int = 42,
     n_train: int = 10,
-    cache: bool = True
+    cache: bool = True,
+    balance: bool = False,
+    n_each: Optional[int] = None,
+    balance_strategy: str = "random",
+    diversify: bool = False,
+    **kwargs
 ) -> DatasetSplits:
     """
     Load parametric PDE dataset and generate deterministic splits.
@@ -53,9 +61,14 @@ def load_parametric_dataset(
     Args:
         equation: Name of the PDE equation (e.g., 'convection', 'diffusion', 'allen_cahn')
         data_dir: Directory containing the dataset
-        seed: Random seed for deterministic splits
+        seed: Random seed for deterministic splits (deterministic when fixed)
         n_train: Number of training samples (few-shot scenario)
         cache: Whether to use cached dataset if available
+        balance: If True, create balanced splits with equal-sized test sets
+        n_each: Number of samples per test split (interp/extrap) when balance=True
+        balance_strategy: Strategy for balancing ('random' or other strategies)
+        diversify: Whether to diversify the selection
+        **kwargs: Additional parameters passed to parametric_splits()
         
     Returns:
         DatasetSplits containing train_few, interp, extrap splits and normalization stats
@@ -63,19 +76,78 @@ def load_parametric_dataset(
     Note:
         This function requires the PARAMETRIC dataset modality. The non-parametric
         modality does not support parametric_splits() and cannot be used with this framework.
+        
+        With a fixed seed, splits are deterministic and reproducible across runs.
+        Example: seed=0 with balance=True, n_each=20 gives 20 interp + 20 extrap = 40 total test samples.
     """
     # Load the full dataset (parametric modality)
     # The load_pde_dataset function loads the parametric dataset by default
     # which contains solutions across a range of parameter values
     dataset = load_pde_dataset(equation, data_dir, cache=cache)
     
+    # Prepare parameters for parametric_splits
+    split_params = {
+        'seed': seed,
+        'n_train': n_train,
+        'balance': balance,
+        'balance_strategy': balance_strategy,
+        'diversify': diversify,
+    }
+    
+    # Add optional parameters if provided
+    if n_each is not None:
+        split_params['n_each'] = n_each
+    
+    # Add any additional kwargs
+    split_params.update(kwargs)
+    
     # Generate parametric splits (only available for parametric modality)
     # This creates train_few, interp, and extrap splits based on parameter ranges
-    splits = dataset.parametric_splits(seed=seed, n_train=n_train)
+    splits = dataset.parametric_splits(**split_params)
     
     train_few = splits['train_few']
     interp = splits['interp']
     extrap = splits['extrap']
+
+    # Extract indices for reference (which samples were used)
+    train_indices = [sample.get('index', i) for i, sample in enumerate(train_few)]
+    interp_indices = [sample.get('index', i) for i, sample in enumerate(interp)]
+    extrap_indices = [sample.get('index', i) for i, sample in enumerate(extrap)]
+    
+    # Save indices to a reference file
+    indices_info = {
+        'equation': equation,
+        'seed': seed,
+        'n_train': n_train,
+        'balance': balance,
+        'n_each': n_each,
+        'balance_strategy': balance_strategy,
+        'diversify': diversify,
+        'indices': {
+            'train': train_indices,
+            'interp': interp_indices,
+            'extrap': extrap_indices
+        },
+        'counts': {
+            'train': len(train_indices),
+            'interp': len(interp_indices),
+            'extrap': len(extrap_indices),
+            'total_test': len(interp_indices) + len(extrap_indices)
+        }
+    }
+    
+    # Save to a reference directory (create if doesn't exist)
+    ref_dir = Path(data_dir).parent / 'dataset_indices'
+    ref_dir.mkdir(parents=True, exist_ok=True)
+    ref_file = ref_dir / f'{equation}_seed{seed}_indices.json'
+    
+    with open(ref_file, 'w') as f:
+        json.dump(indices_info, f, indent=2)
+    
+    print(f"Dataset indices saved to: {ref_file}")
+    print(f"  Train: {len(train_indices)} samples (indices: {train_indices[:5]}{'...' if len(train_indices) > 5 else ''})")
+    print(f"  Interp: {len(interp_indices)} samples (indices: {interp_indices[:5]}{'...' if len(interp_indices) > 5 else ''})")
+    print(f"  Extrap: {len(extrap_indices)} samples (indices: {extrap_indices[:5]}{'...' if len(extrap_indices) > 5 else ''})")
 
     # Note: Some datasets (notably "convection") omit coordinate grids at the per-sample
     # level. We handle that in `extract_coordinate_grids()` by using per-equation domain
