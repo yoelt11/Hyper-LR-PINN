@@ -153,7 +153,7 @@ def setup_seed(seed):
     cudnn.deterministic = True
 
 
-def create_phase2_model(phase1_checkpoint: str, hidden_dim: int, target_coeff: torch.Tensor, device: torch.device):
+def create_phase2_model(phase1_checkpoint: str, hidden_dim: int, target_coeff: torch.Tensor, device: torch.device, use_compile: bool = False):
     """
     Create Phase 2 model from Phase 1 checkpoint.
     
@@ -162,6 +162,7 @@ def create_phase2_model(phase1_checkpoint: str, hidden_dim: int, target_coeff: t
         hidden_dim: Hidden dimension
         target_coeff: Target parameter coefficients
         device: Device to use
+        use_compile: Whether to use torch.compile() for optimization (PyTorch 2.0+)
         
     Returns:
         Phase 2 model initialized from Phase 1
@@ -220,6 +221,16 @@ def create_phase2_model(phase1_checkpoint: str, hidden_dim: int, target_coeff: t
         alpha_0, alpha_1, alpha_2
     )
     model = model.to(device)
+    
+    # Apply torch.compile() if requested and available
+    if use_compile and hasattr(torch, 'compile'):
+        try:
+            # Use 'default' mode to avoid CUDAGraphs issues with in-place operations
+            # 'reduce-overhead' enables CUDAGraphs which conflicts with in-place ops
+            model = torch.compile(model, mode='default')
+            print(f"[INFO] Applied torch.compile() to Phase 2 model (mode='default')")
+        except Exception as e:
+            print(f"[WARN] torch.compile() failed: {e}, continuing without compilation")
     
     return model
 
@@ -640,7 +651,8 @@ def save_qualitative_grid_plot_per_task_adaptation(
     for idx in indices:
         sample = split_data[idx]
         coeff = _extract_target_coeff_from_sample(sample, device=device)
-        model = create_phase2_model(phase1_checkpoint, hidden_dim, coeff, device)
+        # Note: visualization doesn't use compile (not needed for plotting)
+        model = create_phase2_model(phase1_checkpoint, hidden_dim, coeff, device, use_compile=False)
 
         # Fine-tune per task for `epoch` steps on that single sample
         if epoch > 0:
@@ -1086,7 +1098,8 @@ def fine_tune_and_evaluate_per_task(
     for idx in indices:
         sample = split_data[idx]
         coeff = _extract_target_coeff_from_sample(sample, device=device)
-        model = create_phase2_model(phase1_checkpoint, hidden_dim, coeff, device)
+        # Note: per-task adaptation doesn't use compile for now (can be added if needed)
+        model = create_phase2_model(phase1_checkpoint, hidden_dim, coeff, device, use_compile=False)
 
         # Zero-shot
         if 0 in per_epoch_rel_l2:
@@ -1479,7 +1492,9 @@ def main():
     print("=" * 80)
     equation = dataset_config['equation']
     coeff_interp = _extract_target_coeff_from_sample(splits_interp[0], device=device) if splits_interp else target_coeff
-    model_interp = create_phase2_model(args.phase1_checkpoint, hidden_dim, coeff_interp, device)
+    # Check if torch.compile should be used (can be enabled via config or env var)
+    use_compile = config.get('use_torch_compile', False) or os.getenv('USE_TORCH_COMPILE', '0') == '1'
+    model_interp = create_phase2_model(args.phase1_checkpoint, hidden_dim, coeff_interp, device, use_compile=use_compile)
     export_config = config['export']
     output_dir = export_config['output_dir']
     viz_dir = os.path.join(output_dir, f"{equation}_phase2", "evaluation", "visualizations")
@@ -1535,7 +1550,7 @@ def main():
     print("Fine-tuning on Extrapolation Split")
     print("=" * 80)
     coeff_extrap = _extract_target_coeff_from_sample(splits_extrap[0], device=device) if splits_extrap else target_coeff
-    model_extrap = create_phase2_model(args.phase1_checkpoint, hidden_dim, coeff_extrap, device)
+    model_extrap = create_phase2_model(args.phase1_checkpoint, hidden_dim, coeff_extrap, device, use_compile=use_compile)
     if args.per_task_adaptation:
         extrap_results = fine_tune_and_evaluate_per_task(
             phase1_checkpoint=args.phase1_checkpoint,

@@ -42,8 +42,8 @@ def load_parametric_dataset(
     seed: int = 42,
     n_train: int = 10,
     cache: bool = True,
-    balance: bool = False,
-    n_each: Optional[int] = None,
+    balance: bool = True,
+    n_each: Optional[int] = 20,
     balance_strategy: str = "random",
     diversify: bool = False,
     **kwargs
@@ -79,6 +79,10 @@ def load_parametric_dataset(
         
         With a fixed seed, splits are deterministic and reproducible across runs.
         Example: seed=0 with balance=True, n_each=20 gives 20 interp + 20 extrap = 40 total test samples.
+
+        Note: The underlying eff-physics-learn-dataset package now uses the
+        solution_percentile-based method by default when creating interp/extrap
+        splits for parametric datasets.
     """
     # Load the full dataset (parametric modality)
     # The load_pde_dataset function loads the parametric dataset by default
