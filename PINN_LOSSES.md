@@ -48,7 +48,7 @@ Total Loss = pde_weight * PDE_Loss + bc_weight * BC_Loss + ic_weight * IC_Loss
 - `lam`: Diffusion parameter (λ)
 - Default weights: `ic_weight=100.0` (strong IC enforcement)
 
-**Boundary Conditions**: `u = -1` at spatial boundaries
+**Boundary Conditions**: `u = 0` at spatial boundaries
 
 **Initial Condition**: `u(x, 0) = x² cos(πx)`
 
