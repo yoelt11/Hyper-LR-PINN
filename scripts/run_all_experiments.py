@@ -51,7 +51,13 @@ EQUATIONS = {
 }
 
 
-def create_temp_config(original_config_path, seed, output_dir_base):
+def create_temp_config(
+    original_config_path,
+    seed,
+    output_dir_base,
+    *,
+    collocation_chunk_size: int | None = None,
+):
     """
     Create a temporary config file with updated seed and output directory.
     
@@ -70,6 +76,8 @@ def create_temp_config(original_config_path, seed, output_dir_base):
     # Update seed in dataset section
     if 'dataset' in config:
         config['dataset']['seed'] = seed
+        if collocation_chunk_size is not None:
+            config['dataset']['collocation_chunk_size'] = int(collocation_chunk_size)
     
     # Update output directory to include seed
     if 'export' in config and 'output_dir' in config['export']:
@@ -171,6 +179,12 @@ def main():
         help='Device to use (overrides config: cuda:0, cpu, etc.)'
     )
     parser.add_argument(
+        '--collocation_chunk_size',
+        type=int,
+        default=None,
+        help='Chunk size for PDE residual computation (reduces GPU memory)'
+    )
+    parser.add_argument(
         '--max_epochs',
         type=int,
         default=1000,
@@ -228,8 +242,18 @@ def main():
                 results[seed][equation] = {'phase1': None, 'phase2': None}
                 
                 # Create temporary configs for this seed
-                phase1_temp, temp_dir1 = create_temp_config(configs['phase1'], seed, f"outputs/seed_{seed}")
-                phase2_temp, temp_dir2 = create_temp_config(configs['phase2'], seed, f"outputs/seed_{seed}")
+                phase1_temp, temp_dir1 = create_temp_config(
+                    configs['phase1'],
+                    seed,
+                    f"outputs/seed_{seed}",
+                    collocation_chunk_size=args.collocation_chunk_size,
+                )
+                phase2_temp, temp_dir2 = create_temp_config(
+                    configs['phase2'],
+                    seed,
+                    f"outputs/seed_{seed}",
+                    collocation_chunk_size=args.collocation_chunk_size,
+                )
                 temp_dirs.extend([temp_dir1, temp_dir2])
                 
                 # Phase 1: Training

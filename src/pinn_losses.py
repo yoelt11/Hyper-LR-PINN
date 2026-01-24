@@ -171,7 +171,7 @@ def allen_cahn_loss_pytorch(
     pde_residual = u_t - eps**2 * u_xx + lam * (u**3 - u)
     pde_loss = torch.mean(pde_residual**2)
     
-    # Boundary conditions: u = -1 at spatial boundaries
+    # Boundary conditions: u = 0 at spatial boundaries
     # Extract boundary points (assuming x is sorted)
     x_min = x.min()
     x_max = x.max()
@@ -179,12 +179,12 @@ def allen_cahn_loss_pytorch(
     # Left boundary
     left_mask = (x - x_min).abs() < 1e-6
     u_left = u[left_mask]
-    bc_left_loss = torch.mean((u_left + 1.0)**2) if u_left.numel() > 0 else torch.tensor(0.0, device=u.device)
+    bc_left_loss = torch.mean((u_left - 0.0)**2) if u_left.numel() > 0 else torch.tensor(0.0, device=u.device)
     
     # Right boundary
     right_mask = (x - x_max).abs() < 1e-6
     u_right = u[right_mask]
-    bc_right_loss = torch.mean((u_right + 1.0)**2) if u_right.numel() > 0 else torch.tensor(0.0, device=u.device)
+    bc_right_loss = torch.mean((u_right - 0.0)**2) if u_right.numel() > 0 else torch.tensor(0.0, device=u.device)
     
     bc_loss = bc_left_loss + bc_right_loss
     

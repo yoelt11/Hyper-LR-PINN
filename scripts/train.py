@@ -418,7 +418,13 @@ def _save_phase1_qualitative_plots(
     )
 
 
-def convert_dataset_to_training_format(splits, phase='phase1', device='cpu'):
+def convert_dataset_to_training_format(
+    splits,
+    phase='phase1',
+    device='cpu',
+    max_points_per_sample: Optional[int] = None,
+    rng_seed: Optional[int] = None,
+):
     """
     Convert dataset splits to format compatible with existing training code.
     
@@ -453,6 +459,8 @@ def convert_dataset_to_training_format(splits, phase='phase1', device='cpu'):
     nu_bd_list = []
     rho_bd_list = []
     
+    rng = np.random.default_rng(rng_seed) if max_points_per_sample is not None else None
+
     for sample in train_data:
         # Prepare batch to get coordinates and solution
         x, y, z = prepare_batch(sample, include_coords=True, device=device)
@@ -470,6 +478,12 @@ def convert_dataset_to_training_format(splits, phase='phase1', device='cpu'):
             t_coords = np.zeros_like(x_coords)
         
         u_values = y.squeeze().cpu().numpy()
+
+        if max_points_per_sample is not None and len(x_coords) > max_points_per_sample:
+            idx = rng.choice(len(x_coords), size=max_points_per_sample, replace=False)
+            x_coords = x_coords[idx]
+            t_coords = t_coords[idx]
+            u_values = u_values[idx]
         
         # Add to lists
         n_points = len(x_coords)
@@ -559,8 +573,13 @@ def train_phase1(config, device):
     
     # Convert to training format
     processed_splits = convert_to_model_format(splits, phase='phase1', device=device)
+    max_points_per_sample = dataset_config.get('max_points_per_sample')
     train_data, train_data_f, train_data_bd = convert_dataset_to_training_format(
-        processed_splits, phase='phase1', device=device
+        processed_splits,
+        phase='phase1',
+        device=device,
+        max_points_per_sample=max_points_per_sample,
+        rng_seed=dataset_config.get('seed', 42),
     )
     
     # Model setup
@@ -723,6 +742,14 @@ def train_phase1(config, device):
     # Track last-step stats for final export (always filled, even if epochs < log interval)
     last_stats: Dict[str, float] = {}
 
+    collocation_chunk_size = dataset_config.get('collocation_chunk_size')
+    if isinstance(collocation_chunk_size, int) and collocation_chunk_size <= 0:
+        collocation_chunk_size = None
+
+    collocation_chunk_size = dataset_config.get('collocation_chunk_size')
+    if isinstance(collocation_chunk_size, int) and collocation_chunk_size <= 0:
+        collocation_chunk_size = None
+
     for ep in range(1, epochs + 1):
         net.train()
         optimizer.zero_grad()
@@ -756,15 +783,41 @@ def train_phase1(config, device):
                 u_ic_gt = A_ic * torch.sin(k_ic * np.pi * x_ic)
                 mse_ic = mse_cost_function(u_ic_pred, u_ic_gt)
         
-        # PDE residual loss (equation-aware, Hyper-LR-PINN style: residual tensor + reg_f)
-        f_out, reg_f = f_cal_equation_aware(
-            x_collocation, t_collocation,
-            beta_collocation, nu_collocation, rho_collocation,
-            net, hidden_dim,
-            equation=equation,
-            normalization_stats=splits.normalization_stats,
-        )
-        mse_f = mse_cost_function(f_out, all_zeros)
+        # PDE residual loss (equation-aware)
+        if collocation_chunk_size is None or x_collocation.shape[0] <= collocation_chunk_size:
+            f_out, reg_f = f_cal_equation_aware(
+                x_collocation, t_collocation,
+                beta_collocation, nu_collocation, rho_collocation,
+                net, hidden_dim,
+                equation=equation,
+                normalization_stats=splits.normalization_stats,
+            )
+            mse_f = mse_cost_function(f_out, all_zeros)
+        else:
+            # Compute orthogonality regularization once (independent of batch size)
+            reg_f = (
+                orthogonality_reg(net.col_basis_0, net.row_basis_0, hidden_dim) +
+                orthogonality_reg(net.col_basis_1, net.row_basis_1, hidden_dim) +
+                orthogonality_reg(net.col_basis_2, net.row_basis_2, hidden_dim)
+            )
+            total_sq = torch.tensor(0.0, device=device)
+            total_count = 0
+            n_total = int(x_collocation.shape[0])
+            for start in range(0, n_total, int(collocation_chunk_size)):
+                end = min(n_total, start + int(collocation_chunk_size))
+                f_out, _ = f_cal_equation_aware(
+                    x_collocation[start:end], t_collocation[start:end],
+                    beta_collocation[start:end], nu_collocation[start:end], rho_collocation[start:end],
+                    net, hidden_dim,
+                    equation=equation,
+                    normalization_stats=splits.normalization_stats,
+                )
+                chunk_count = int(f_out.numel())
+                total_sq = total_sq + (f_out ** 2).sum()
+                total_count += chunk_count
+                chunk_weight = float(chunk_count) / float(n_total)
+                (f_out ** 2).mean().mul(chunk_weight).backward()
+            mse_f = (total_sq / max(total_count, 1)).detach()
         
         # Boundary loss
         #
@@ -773,7 +826,8 @@ def train_phase1(config, device):
         #
         # For Helmholtz2D we instead enforce Dirichlet boundary conditions on all four
         # edges using the dataset-provided boundary values (x=min/max and y=min/max).
-        if "helmholtz" in str(equation).lower():
+        eq_lower = str(equation).lower()
+        if "helmholtz" in eq_lower:
             # Treat the second coordinate as y; enforce u_pred(x_edge,y) = u_true(x_edge,y)
             eps_bd = 1e-6
             x_min = x_initial.min()
@@ -799,6 +853,27 @@ def train_phase1(config, device):
             # (Dirichlet edges are already covered by the supervised data loss; we just
             # upweight boundary agreement for Helmholtz2D.)
             reg_bd = torch.tensor(0.0, device=device)
+        elif "allen" in eq_lower and "cahn" in eq_lower:
+            # Dirichlet BCs: u(x_min,t) = u(x_max,t) = 0
+            u_pred_lb, col_0_lb, col_1_lb, col_2_lb, row_0_lb, row_1_lb, row_2_lb = net(
+                x_lb, t_lb, beta_bd, nu_bd, rho_bd
+            )
+            u_pred_ub, col_0_ub, col_1_ub, col_2_ub, row_0_ub, row_1_ub, row_2_ub = net(
+                x_ub, t_ub, beta_bd, nu_bd, rho_bd
+            )
+
+            reg_lb_0 = orthogonality_reg(col_0_lb, row_0_lb, hidden_dim)
+            reg_lb_1 = orthogonality_reg(col_1_lb, row_1_lb, hidden_dim)
+            reg_lb_2 = orthogonality_reg(col_2_lb, row_2_lb, hidden_dim)
+            reg_ub_0 = orthogonality_reg(col_0_ub, row_0_ub, hidden_dim)
+            reg_ub_1 = orthogonality_reg(col_1_ub, row_1_ub, hidden_dim)
+            reg_ub_2 = orthogonality_reg(col_2_ub, row_2_ub, hidden_dim)
+            reg_bd = reg_lb_0 + reg_lb_1 + reg_lb_2 + reg_ub_0 + reg_ub_1 + reg_ub_2
+
+            # Boundary loss (physical units)
+            u_lb_phys = u_pred_lb * u_std_t + u_mean_t
+            u_ub_phys = u_pred_ub * u_std_t + u_mean_t
+            mse_bd = torch.mean(u_lb_phys ** 2) + torch.mean(u_ub_phys ** 2)
         else:
             u_pred_lb, col_0_lb, col_1_lb, col_2_lb, row_0_lb, row_1_lb, row_2_lb = net(
                 x_lb, t_lb, beta_bd, nu_bd, rho_bd
@@ -821,7 +896,9 @@ def train_phase1(config, device):
             mse_bd = torch.mean((u_lb_phys - u_ub_phys) ** 2)
         
         # Total loss (Hyper-LR-PINN style)
-        loss = mse_u + mse_f + mse_bd + reg_init + reg_f + reg_bd + ic_weight * mse_ic
+        loss = mse_u + mse_bd + reg_init + reg_f + reg_bd + ic_weight * mse_ic
+        if collocation_chunk_size is None or x_collocation.shape[0] <= collocation_chunk_size:
+            loss = loss + mse_f
 
         # Always keep latest scalar stats (final epoch may not align with logging cadence)
         last_stats = {
@@ -1131,8 +1208,13 @@ def train_phase2(config, device):
     
     # Convert dataset to training format
     processed_splits = convert_to_model_format(splits, phase='phase2', device=device)
+    max_points_per_sample = dataset_config.get('max_points_per_sample')
     train_data, train_data_f, train_data_bd = convert_dataset_to_training_format(
-        processed_splits, phase='phase2', device=device
+        processed_splits,
+        phase='phase2',
+        device=device,
+        max_points_per_sample=max_points_per_sample,
+        rng_seed=dataset_config.get('seed', 42),
     )
     
     # Prepare data tensors (phase2 doesn't need parameters in forward pass)
@@ -1239,17 +1321,38 @@ def train_phase2(config, device):
                 mse_ic = mse_cost_function(u_ic_pred, u_ic_gt)
         
         # PDE residual loss (equation-aware)
-        f_out = f_cal_phase2_equation_aware(
-            x_collocation, t_collocation,
-            beta_collocation, nu_collocation, rho_collocation,
-            net,
-            equation=equation,
-            normalization_stats=splits.normalization_stats,
-        )
-        mse_f = mse_cost_function(f_out, all_zeros)
+        if collocation_chunk_size is None or x_collocation.shape[0] <= collocation_chunk_size:
+            f_out = f_cal_phase2_equation_aware(
+                x_collocation, t_collocation,
+                beta_collocation, nu_collocation, rho_collocation,
+                net,
+                equation=equation,
+                normalization_stats=splits.normalization_stats,
+            )
+            mse_f = mse_cost_function(f_out, all_zeros)
+        else:
+            total_sq = torch.tensor(0.0, device=device)
+            total_count = 0
+            n_total = int(x_collocation.shape[0])
+            for start in range(0, n_total, int(collocation_chunk_size)):
+                end = min(n_total, start + int(collocation_chunk_size))
+                f_out = f_cal_phase2_equation_aware(
+                    x_collocation[start:end], t_collocation[start:end],
+                    beta_collocation[start:end], nu_collocation[start:end], rho_collocation[start:end],
+                    net,
+                    equation=equation,
+                    normalization_stats=splits.normalization_stats,
+                )
+                chunk_count = int(f_out.numel())
+                total_sq = total_sq + (f_out ** 2).sum()
+                total_count += chunk_count
+                chunk_weight = float(chunk_count) / float(n_total)
+                (f_out ** 2).mean().mul(chunk_weight).backward()
+            mse_f = (total_sq / max(total_count, 1)).detach()
         
         # Boundary loss
-        if "helmholtz" in str(equation).lower():
+        eq_lower = str(equation).lower()
+        if "helmholtz" in eq_lower:
             # Dirichlet BCs on all four edges using dataset boundary values
             eps_bd = 1e-6
             x_min = x_initial.min()
@@ -1269,6 +1372,13 @@ def train_phase2(config, device):
             for m in (left_mask, right_mask, bottom_mask, top_mask):
                 if m.any():
                     mse_bd = mse_bd + mse_cost_function(u_pred_phys[m], u_true_phys[m])
+        elif "allen" in eq_lower and "cahn" in eq_lower:
+            # Dirichlet BCs: u(x_min,t) = u(x_max,t) = 0
+            u_pred_lb = net(x_lb, t_lb)
+            u_pred_ub = net(x_ub, t_ub)
+            u_lb_phys = u_pred_lb * u_std_t + u_mean_t
+            u_ub_phys = u_pred_ub * u_std_t + u_mean_t
+            mse_bd = torch.mean(u_lb_phys ** 2) + torch.mean(u_ub_phys ** 2)
         else:
             u_pred_lb = net(x_lb, t_lb)
             u_pred_ub = net(x_ub, t_ub)
@@ -1278,10 +1388,12 @@ def train_phase2(config, device):
             mse_bd = torch.mean((u_lb_phys - u_ub_phys) ** 2)
         
         # Total loss
-        loss = mse_u + mse_f + mse_bd + ic_weight * mse_ic
-        
-        # Backward pass
-        loss.backward()
+        loss = mse_u + mse_bd + ic_weight * mse_ic
+        if collocation_chunk_size is None or x_collocation.shape[0] <= collocation_chunk_size:
+            loss = loss + mse_f
+            loss.backward()
+        else:
+            loss.backward()
         optimizer.step()
         
         # Logging and metrics
