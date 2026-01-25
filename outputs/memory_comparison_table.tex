@@ -1,0 +1,14 @@
+\begin{table}[htbp]
+\centering
+\caption{Memory footprint comparison across surrogate and physics-informed models. Reported metrics include the total number of parameters and model memory size. For Hyper-LR-PINN, peak GPU memory consumption during fine-tuning is also reported. Peak GPU memory for U-Net and FNO is not included as these models are used only for inference, making direct comparison with training memory inappropriate.}
+\label{tab:memory_comparison}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{\# Parameters} & \textbf{Model Size (MB)} & \textbf{Peak GPU Memory (MB)} \\
+\midrule
+U-Net           & 146.7M & 559.5 & --- \\
+FNO             & 36.0M & 137.4 & --- \\
+Hyper-LR-PINN   & 15,351 & 0.06 & 18.68 \\
+\bottomrule
+\end{tabular}
+\end{table}

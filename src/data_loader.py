@@ -102,7 +102,9 @@ def load_parametric_dataset(
     if n_each is not None:
         split_params['n_each'] = n_each
     
-    # Add any additional kwargs
+    # Add any additional kwargs (method, percentile, etc. if explicitly provided)
+    # Note: If method is not provided, the package will use its default
+    # (which should be 'solution_percentile' in the updated version)
     split_params.update(kwargs)
     
     # Generate parametric splits (only available for parametric modality)

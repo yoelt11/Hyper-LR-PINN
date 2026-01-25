@@ -1,0 +1,36 @@
+\begin{table}[htbp]
+\centering
+\caption{Interpolation performance comparison across surrogate and physics-informed models on parametric PDE benchmarks. Metrics include zero-shot RL2 error, RL2 error after fine-tuning at different epochs (mean $\pm$ std), iterations per second (it/s) for inference throughput, and total wall time. For U-Net and FNO, it/s and wall time correspond to zero-shot inference on the test set (20 samples). For Hyper-LR-PINN, wall time represents cumulative training/fine-tuning time. Missing values indicate unavailable measurements.}
+\label{tab:interpolation_results}
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Model} & \textbf{Zero-shot} & \textbf{Epoch 50} & \textbf{Epoch 500} & \textbf{Epoch 1000} & \textbf{it/s} & \textbf{Wall Time (s)} \\
+\midrule
+
+\multicolumn{7}{l}{\textbf{Allen--Cahn}} \\
+U-Net            & $0.0113 \pm 0.0033$ & N/A & N/A & N/A & $87.6 ± 24.0$ & $0.23 ± 0.06$ \\
+FNO              & $0.0044 \pm 0.0034$ & N/A & N/A & N/A & $136.2 ± 31.2$ & $0.15 ± 0.03$ \\
+Hyper-LR-PINN    & $0.1550 \pm 0.0116$ & $0.1434 \pm 0.0088$ & $0.1365 \pm 0.0079$ & $0.1387 \pm 0.0089$ & N/A & N/A \\
+\midrule
+
+\multicolumn{7}{l}{\textbf{Burgers}} \\
+U-Net            & $0.3573 \pm 0.0748$ & N/A & N/A & N/A & $103.6 ± 6.0$ & $0.19 ± 0.01$ \\
+FNO              & $0.3332 \pm 0.0523$ & N/A & N/A & N/A & $137.0 ± 34.2$ & $0.15 ± 0.04$ \\
+Hyper-LR-PINN    & $0.9750 \pm 0.0407$ & $0.9913 \pm 0.1442$ & $0.7476 \pm 0.0362$ & $0.7371 \pm 0.0352$ & N/A & N/A \\
+\midrule
+
+\multicolumn{7}{l}{\textbf{Convection}} \\
+U-Net            & $0.1354 \pm 0.0276$ & N/A & N/A & N/A & $90.5 ± 21.5$ & $0.22 ± 0.05$ \\
+FNO              & $0.1102 \pm 0.0248$ & N/A & N/A & N/A & $143.7 ± 42.1$ & $0.14 ± 0.04$ \\
+Hyper-LR-PINN    & $0.8129 \pm 0.0911$ & $0.6717 \pm 0.0247$ & $0.5771 \pm 0.0011$ & $0.5767 \pm 0.0008$ & N/A & N/A \\
+\midrule
+
+\multicolumn{7}{l}{\textbf{Helmholtz}} \\
+U-Net            & $1.1084 \pm 0.0162$ & N/A & N/A & N/A & $88.8 ± 23.3$ & $0.23 ± 0.06$ \\
+FNO              & $1.0602 \pm 0.0329$ & N/A & N/A & N/A & $143.7 ± 38.4$ & $0.14 ± 0.04$ \\
+Hyper-LR-PINN    & $3.1482 \pm 3.0380$ & $3.0369 \pm 2.8800$ & $2.7415 \pm 2.4523$ & $2.4972 \pm 1.9849$ & N/A & N/A \\
+\midrule
+
+\bottomrule
+\end{tabular}
+\end{table}
